@@ -41,7 +41,7 @@ BUILTINS = {
     'STRLEN': 'strLen',
     'UCASE': 'ucase',
     'LCASE': 'lcase',
-    'ENCODE_FOR_URI': 'encode_for_uri',
+    'ENCODE_FOR_URI': 'encodeForUri',
     'CONTAINS': 'contains',
     'STRSTARTS': 'strStarts',
     'STRENDS': 'strEnds',
@@ -487,7 +487,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
     def _inlinevalue(self, v):
         return (
             {ID: "rq:undef"}
-            if isinstance(v, str) and v.upper() == "UNDEF"
+            if isinstance(v, str) and v == "UNDEF"
             else self.transform(v)
         )
 
@@ -509,7 +509,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
             'RegexExpression',
         }:
             return self.transform(call)
-        elif func.upper() == 'IF':
+        elif func == 'IF':
             cond, then, otherwise = args
             return {
                 'rq:if': self.transform(cond),
@@ -517,7 +517,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
                 'rq:else': self.transform(otherwise),
             }
         else:
-            call_prop = f'rq:{BUILTINS[func.upper()]}'
+            call_prop = f'rq:{BUILTINS[func]}'
 
         args_node = self.transform(args)
         if isinstance(args_node, list) and len(args_node) > 1:
