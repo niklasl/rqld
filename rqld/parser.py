@@ -136,6 +136,21 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
 
         return select_node
 
+    def match_SubSelect(self, select):
+        (((select_clause, where_clause), solution_modifier), valuesclause) = select
+        select_node = self.transform(select_clause) | {
+            'rq:where': self.transform(where_clause),
+        }
+
+        if solution_modifier.value != (((None, None), None), None):
+            select_node |= self.transform(solution_modifier)
+
+        valuesnode = self.transform(valuesclause)
+        if valuesnode is not None:
+            querynode['rq:values'] = valuesnode
+
+        return select_node
+
     def match_SelectClause(self, select_clause):
         modifier, vars = select_clause
         select = (
