@@ -17,6 +17,12 @@ OPERATORS = {
     '-': 'minus',
 }
 
+PATH_MODS = {
+    '?': 'optional',
+    '*': 'zeroOrMore',
+    '+': 'oneOrMore',
+}
+
 BUILTINS = {
     'STR': 'str',
     'LANG': 'lang',
@@ -105,11 +111,17 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
 
     def match_Prologue(self, prologue):
         for decl in prologue:
-            pname_ns, iriref = decl.value
-            pfx = self.match_PrefixedName(pname_ns)[ID]
-            if pfx in self._ctx:
-                pass  # TODO: handle overwritten prefixes!
-            self._ctx[pfx[:-1] if pfx else VOCAB] = iriref.value
+            if decl.name == 'BaseDecl':
+                key = BASE
+                iriref = decl.value
+            else:
+                pname_ns, iriref = decl.value
+                pfx = self.match_PrefixedName(pname_ns)[ID]
+                if pfx in self._ctx:
+                    pass  # TODO: handle overwritten prefixes!
+                key = pfx[:-1] if pfx else VOCAB
+
+            self._ctx[key] = iriref.value
 
         return {CONTEXT: self._ctx}
 
@@ -156,7 +168,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
                 'rq:constructWhere': wherenode,
             }
         else:
-            (construct_template, ds_clauses), where_clause = construct
+            (construct_template, ds_clauses), where_clause = bulk
             construct_node = {
                 'rq:construct': self.transform(construct_template),
                 'rq:where': self.transform(where_clause),
@@ -268,7 +280,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         subject, property_list = node_triples
 
         node = self.transform(subject)
-        if node[ID] is None:
+        if ID in node and node[ID] is None:
             del node[ID]
 
         self._populate_node(node, property_list.value)
@@ -375,8 +387,8 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         path_prim, path_mod = path_elt
         path_obj = self.transform(path_prim)
         if path_mod is not None:
-            mod_op = path_mod  # FIXME: map to rq mod_op (already in OPERATORS?)
-            return {mod_op: path_obj}
+            mod_op = PATH_MODS[path_mod]
+            return {f'rq:{mod_op}': path_obj}
         else:
             return path_obj
 

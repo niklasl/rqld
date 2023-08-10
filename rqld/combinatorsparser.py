@@ -556,19 +556,18 @@ class TriplesBlock(TaggingParser):
         )
 
 
-class GraphPatternNotTriples(TaggingParser):
+def GraphPatternNotTriples() -> Parser:
     # GroupOrUnionGraphPattern | OptionalGraphPattern | MinusGraphPattern | GraphGraphPattern | ServiceGraphPattern | Filter | Bind | InlineData
-    def parser(self) -> Parser:
-        return either_of(
-            GroupOrUnionGraphPattern(),
-            OptionalGraphPattern(),
-            MinusGraphPattern(),
-            GraphGraphPattern(),
-            ServiceGraphPattern(),
-            Filter(),
-            Bind(),
-            InlineData(),
-        )
+    return either_of(
+        GroupOrUnionGraphPattern(),
+        OptionalGraphPattern(),
+        MinusGraphPattern(),
+        GraphGraphPattern(),
+        ServiceGraphPattern(),
+        Filter(),
+        Bind(),
+        InlineData(),
+    )
 
 
 class OptionalGraphPattern(TaggingParser):
@@ -931,7 +930,7 @@ class PathSequence(TaggingParser):
 class PathElt(TaggingParser):
     # PathPrimary PathMod?
     def parser(self) -> Parser:
-        return cspace_pattern_of(PathPrimary(), Optional(PathMod()))
+        return Pair(PathPrimary(), Optional(PathMod()))
 
 
 class PathEltOrInverse(TaggingParser):
@@ -940,12 +939,9 @@ class PathEltOrInverse(TaggingParser):
         return Either(PathElt(), cspace_pattern_of(MatchString(r'^'), PathElt()))
 
 
-class PathMod(TaggingParser):
+def PathMod() -> Parser:
     # '?' | '*' | '+'
-    def parser(self) -> Parser:
-        return either_of(
-            Left(MatchString(r'?'), cspace1()), MatchString(r'*'), MatchString(r'+')
-        )
+    return either_of(MatchString(r'?'), MatchString(r'*'), MatchString(r'+'))
 
 
 class PathPrimary(TaggingParser):
@@ -1728,7 +1724,7 @@ def STRING_LITERAL_LONG2() -> Parser:
 
 def ECHAR() -> Parser:
     # '\' [tbnrf\"']
-    return Right(MatchString('\\'), RegExp(r'[tbnrf\"\']'))
+    return Right(MatchString('\\'), RegExp(r'[tbnrf\\\"\']'))
 
 
 class NIL(TaggingParser):
