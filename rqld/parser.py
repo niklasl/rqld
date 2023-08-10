@@ -75,6 +75,16 @@ BUILTINS = {
     'ISNUMERIC': 'isNumeric',
 }
 
+AGGREGATES = {
+    'COUNT': 'count',
+    'SUM': 'sum',
+    'MIN': 'min',
+    'MAX': 'max',
+    'AVG': 'avg',
+    'SAMPLE': 'sample',
+    'GROUP_CONCAT': 'groupConcat',
+}
+
 
 class SparqlToJsonLdTransformer(TaggedResultTransformer):
     def __init__(self):
@@ -517,11 +527,23 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
 
     def match_Aggregate(self, aggregate):
         func, (distinct, expr) = aggregate
-        call_prop = f'rq:{func.lower()}'
-        return {
+
+        separator = None
+        if func == 'GROUP_CONCAT':
+            _, separator = expr
+            distinct, expr = distinct
+
+        func_name = AGGREGATES[func]
+        call_prop = f'rq:{func_name}'
+        aggr_node = {
             call_prop: self.transform(expr),
             'rq:distinct': True if distinct is not None else None,
         }
+
+        if separator is not None:
+            aggr_node['rq:separator'] = separator
+
+        return aggr_node
 
     def match_ExpressionList(self, exprs):
         return {LIST: self._first_more_to_list(exprs)}
