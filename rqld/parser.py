@@ -119,7 +119,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
                 pfx = self.match_PrefixedName(pname_ns)[ID]
                 if pfx in self._ctx:
                     pass  # TODO: handle overwritten prefixes!
-                key = pfx[:-1] if pfx else VOCAB
+                key = VOCAB if pfx == ':' else pfx[:-1]
 
             self._ctx[key] = iriref.value
 
