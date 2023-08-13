@@ -1,23 +1,20 @@
 import re
 
 from .partr.combinators import *
-from .partr.tagging import Tagged, TaggingParser
+from .partr.tagging import Tagged, TaggedParser, TaggingParser
 
 
 def cspace_wrap(parser: Parser) -> Parser:
     return space_wrap(parser, '#')
 
 
-def cspace0() -> Parser:
-    return space0('#')
+CSPACE0 = space0('#')
 
-
-def cspace1() -> Parser:
-    return space1('#')
+CSPACE1 = space1('#')
 
 
 def cspace_pattern_of(*parsers) -> Parser:
-    combos: list = list(parsers[:1]) + [Right(cspace0(), p) for p in parsers[1:]]
+    combos: list = list(parsers[:1]) + [Right(CSPACE0, p) for p in parsers[1:]]
     return reduce(Pair, combos)
 
 
@@ -50,15 +47,15 @@ class Prologue(TaggingParser):
 class BaseDecl(TaggingParser):
     # 'BASE' IRIREF
     def parser(self) -> Parser:
-        return Right(Pair(MatchICase(r'BASE'), cspace1()), IRIREF())
+        return Right(Pair(MatchICase(r'BASE'), CSPACE1), IRIREF)
 
 
 class PrefixDecl(TaggingParser):
     # 'PREFIX' PNAME_NS IRIREF
     def parser(self) -> Parser:
         return Right(
-            Pair(MatchICase(r'PREFIX'), cspace1()),
-            Pair(Left(PNAME_NS(), cspace1()), IRIREF()),
+            Pair(MatchICase(r'PREFIX'), CSPACE1),
+            Pair(Left(PNAME_NS, CSPACE1), IRIREF),
         )
 
 
@@ -86,7 +83,7 @@ class SelectClause(TaggingParser):
     def parser(self) -> Parser:
         return cspace_pattern_of(
             Right(
-                Pair(MatchICase(r"SELECT"), cspace1()),
+                Pair(MatchICase(r"SELECT"), CSPACE1),
                 Optional(Either(MatchICase(r"DISTINCT"), MatchICase(r"REDUCED"))),
             ),
             Either(
@@ -108,7 +105,7 @@ class SelectClause(TaggingParser):
                                 ),
                             ),
                         ),
-                        cspace0(),
+                        CSPACE0,
                     )
                 ),
                 MatchString(r"*"),
@@ -120,7 +117,7 @@ class ConstructQuery(TaggingParser):
     # 'CONSTRUCT' ( ConstructTemplate DatasetClause* WhereClause SolutionModifier | DatasetClause* 'WHERE' '{' TriplesTemplate? '}' SolutionModifier )
     def parser(self) -> Parser:
         return Right(
-            Pair(MatchICase(r'CONSTRUCT'), cspace0()),
+            Pair(MatchICase(r'CONSTRUCT'), CSPACE0),
             Either(
                 cspace_pattern_of(
                     ConstructTemplate(),
@@ -196,7 +193,7 @@ class SourceSelector(TaggingParser):
 
 def WhereClause() -> Parser:
     # 'WHERE'? GroupGraphPattern
-    return Right((Optional(Pair(MatchICase(r'WHERE'), cspace0()))), GroupGraphPattern())
+    return Right((Optional(Pair(MatchICase(r'WHERE'), CSPACE0))), GroupGraphPattern())
 
 
 class SolutionModifier(TaggingParser):
@@ -278,13 +275,13 @@ def LimitOffsetClauses() -> Parser:
 class LimitClause(TaggingParser):
     # 'LIMIT' INTEGER
     def parser(self) -> Parser:
-        return Right(cspace_wrap(MatchICase(r'LIMIT')), INTEGER())
+        return Right(cspace_wrap(MatchICase(r'LIMIT')), INTEGER)
 
 
 class OffsetClause(TaggingParser):
     # 'OFFSET' INTEGER
     def parser(self) -> Parser:
-        return Right(cspace_wrap(MatchICase(r'OFFSET')), INTEGER())
+        return Right(cspace_wrap(MatchICase(r'OFFSET')), INTEGER)
 
 
 def ValuesClause() -> Parser:
@@ -449,7 +446,7 @@ class UsingClause(TaggingParser):
 class GraphOrDefault(TaggingParser):
     # 'DEFAULT' | 'GRAPH'? iri
     def parser(self) -> Parser:
-        return either_of(
+        return Either(
             MatchICase(r'DEFAULT'),
             cspace_pattern_of(Optional(MatchICase(r'GRAPH')), iri()),
         )
@@ -522,10 +519,10 @@ class GroupGraphPattern(TaggingParser):
     # '{' ( SubSelect | GroupGraphPatternSub ) '}'
     def parser(self) -> Parser:
         return Right(
-            Pair(MatchString(r'{'), cspace0()),
+            Pair(MatchString(r'{'), CSPACE0),
             Left(
                 Either(SubSelect(), GroupGraphPatternSub()),
-                Pair(cspace0(), MatchString(r'}')),
+                Pair(CSPACE0, MatchString(r'}')),
             ),
         )
 
@@ -644,11 +641,11 @@ class InlineDataFull(TaggingParser):
     def parser(self) -> Parser:
         return cspace_pattern_of(
             Either(
-                NIL(),
+                NIL,
                 Right(
                     cspace_wrap(MatchString(r'(')),
                     Left(
-                        ZeroOrMore(Left(Var(), cspace0())),
+                        ZeroOrMore(Left(Var(), CSPACE0)),
                         cspace_wrap(MatchString(r')')),
                     ),
                 ),
@@ -662,11 +659,11 @@ class InlineDataFull(TaggingParser):
                                 Right(
                                     cspace_wrap(MatchString(r'(')),
                                     Left(
-                                        ZeroOrMore(Left(DataBlockValue(), cspace0())),
+                                        ZeroOrMore(Left(DataBlockValue(), CSPACE0)),
                                         cspace_wrap(MatchString(r')')),
                                     ),
                                 ),
-                                NIL(),
+                                NIL,
                             )
                         )
                     ),
@@ -718,8 +715,8 @@ class FunctionCall(TaggingParser):
 class ArgList(TaggingParser):
     # NIL | '(' 'DISTINCT'? Expression ( ',' Expression )* ')'
     def parser(self) -> Parser:
-        return either_of(
-            NIL(),
+        return Either(
+            NIL,
             cspace_pattern_of(
                 MatchString(r'('),
                 Optional(MatchICase(r'DISTINCT')),
@@ -733,9 +730,9 @@ class ArgList(TaggingParser):
 class ExpressionList(TaggingParser):
     # NIL | '(' Expression ( ',' Expression )* ')'
     def parser(self) -> Parser:
-        return either_of(
-            NIL(),
-            pattern_of(
+        return Either(
+            NIL,
+            Pair(
                 Right(cspace_wrap(MatchString(r"(")), Expression()),
                 Left(
                     ZeroOrMore(Right(cspace_wrap(MatchString(r",")), Expression())),
@@ -748,8 +745,8 @@ class ExpressionList(TaggingParser):
 def ConstructTemplate() -> Parser:
     # '{' ConstructTriples? '}'
     return Right(
-        Pair(MatchString(r'{'), cspace0()),
-        Left(Optional(ConstructTriples()), Pair(cspace0(), MatchString(r'}'))),
+        Pair(MatchString(r'{'), CSPACE0),
+        Left(Optional(ConstructTriples()), Pair(CSPACE0, MatchString(r'}'))),
     )
 
 
@@ -795,7 +792,7 @@ class PropertyListNotEmpty(TaggingParser):
             ObjectList(),
             ZeroOrMore(
                 Right(
-                    Pair(MatchString(r';'), cspace0()),
+                    Pair(MatchString(r';'), CSPACE0),
                     Optional(cspace_pattern_of(Verb(), ObjectList())),
                 )
             ),
@@ -950,10 +947,10 @@ class PathPrimary(TaggingParser):
         return either_of(
             iri(),
             MatchString(r'a'),
-            Right(Pair(MatchString(r'!'), cspace0()), PathNegatedPropertySet()),
+            Right(Pair(MatchString(r'!'), CSPACE0), PathNegatedPropertySet()),
             Left(
-                Right(Pair(MatchString(r'('), cspace0()), Path()),
-                Pair(cspace0(), MatchString(r')')),
+                Right(Pair(MatchString(r'('), CSPACE0), Path()),
+                Pair(CSPACE0, MatchString(r')')),
             ),
         )
 
@@ -991,7 +988,7 @@ class PathOneInPropertySet(TaggingParser):
 class Integer(TaggingParser):
     # INTEGER
     def parser(self) -> Parser:
-        return INTEGER()
+        return INTEGER
 
 
 def TriplesNode() -> Parser:
@@ -1002,11 +999,9 @@ def TriplesNode() -> Parser:
 class BlankNodePropertyList(TaggingParser):
     # '[' PropertyListNotEmpty ']'
     def parser(self) -> Parser:
-        return pattern_of(
-            Left(
-                Right(cspace_wrap(MatchString(r'[')), PropertyListNotEmpty()),
-                MatchString(r']'),
-            )
+        return Left(
+            Right(cspace_wrap(MatchString(r'[')), PropertyListNotEmpty()),
+            MatchString(r']'),
         )
 
 
@@ -1075,18 +1070,18 @@ def VarOrIri() -> Parser:
     ('', Tagged(name='VAR1', value='var'))
     """
     # Var | iri
-    return either_of(Var(), iri())
+    return Either(Var(), iri())
 
 
 def Var() -> Parser:
     # VAR1 | VAR2
-    return either_of(VAR1(), VAR2())
+    return Either(VAR1, VAR2)
 
 
 def GraphTerm() -> Parser:
     # iri | RDFLiteral | NumericLiteral | BooleanLiteral | BlankNode | NIL
     return either_of(
-        iri(), RDFLiteral(), NumericLiteral(), BooleanLiteral(), BlankNode(), NIL()
+        iri(), RDFLiteral(), NumericLiteral(), BooleanLiteral(), BlankNode(), NIL
     )
 
 
@@ -1099,7 +1094,7 @@ class ConditionalOrExpression(TaggingParser):
     # ConditionalAndExpression ( '||' ConditionalAndExpression )*
     def parser(self) -> Parser:
         return Pair(
-            Left(ConditionalAndExpression(), cspace0()),
+            Left(ConditionalAndExpression(), CSPACE0),
             ZeroOrMore(
                 Right(cspace_wrap(MatchString(r'||')), ConditionalAndExpression())
             ),
@@ -1110,7 +1105,7 @@ class ConditionalAndExpression(TaggingParser):
     # ValueLogical ( '&&' ValueLogical )*
     def parser(self) -> Parser:
         return Pair(
-            Left(ValueLogical(), cspace0()),
+            Left(ValueLogical(), CSPACE0),
             ZeroOrMore(Right(cspace_wrap(MatchString(r'&&')), ValueLogical())),
         )
 
@@ -1213,8 +1208,8 @@ def PrimaryExpression() -> Parser:
 def BrackettedExpression() -> Parser:
     # '(' Expression ')'
     return Right(
-        Pair(MatchString(r'('), cspace0()),
-        Left(Expression(), Pair(cspace0(), MatchString(r')'))),
+        Pair(MatchString(r'('), CSPACE0),
+        Left(Expression(), Pair(CSPACE0, MatchString(r')'))),
     )
 
 
@@ -1256,10 +1251,10 @@ class BuiltInCall(TaggingParser):
                         cspace_wrap(MatchString(r'(')),
                         Left(Expression(), cspace_wrap(MatchString(r')'))),
                     ),
-                    NIL(),
+                    NIL,
                 ),
             ),
-            cspace_pattern_of(MatchICase(r'RAND'), NIL()),
+            cspace_pattern_of(MatchICase(r'RAND'), NIL),
             _parse_call1('ABS'),
             _parse_call1('CEIL'),
             _parse_call1('FLOOR'),
@@ -1284,9 +1279,9 @@ class BuiltInCall(TaggingParser):
             _parse_call1('SECONDS'),
             _parse_call1('TIMEZONE'),
             _parse_call1('TZ'),
-            pattern_of(MatchICase(r'NOW'), Right(cspace0(), NIL())),
-            pattern_of(MatchICase(r'UUID'), Right(cspace0(), NIL())),
-            pattern_of(MatchICase(r'STRUUID'), Right(cspace0(), NIL())),
+            pattern_of(MatchICase(r'NOW'), Right(CSPACE0, NIL)),
+            pattern_of(MatchICase(r'UUID'), Right(CSPACE0, NIL)),
+            pattern_of(MatchICase(r'STRUUID'), Right(CSPACE0, NIL)),
             _parse_call1('MD5'),
             _parse_call1('SHA1'),
             _parse_call1('SHA256'),
@@ -1443,7 +1438,7 @@ class iriOrFunction(TaggingParser):
 
 class RDFLiteral(TaggingParser):
     """
-    >>> LANGTAG().parse('@sv-SE')
+    >>> LANGTAG.parse('@sv-SE')
     ('', Tagged(name='LANGTAG', value=(('@', ['s', 'v']), [('-', ['S', 'E'])])))
     """
 
@@ -1451,7 +1446,7 @@ class RDFLiteral(TaggingParser):
     def parser(self) -> Parser:
         return cspace_pattern_of(
             String(),
-            Optional(Either(LANGTAG(), Right(cspace_wrap(MatchString(r'^^')), iri()))),
+            Optional(Either(LANGTAG, Right(cspace_wrap(MatchString(r'^^')), iri()))),
         )
 
 
@@ -1464,23 +1459,23 @@ def NumericLiteral() -> Parser:
 
 def NumericLiteralUnsigned() -> Parser:
     # INTEGER | DECIMAL | DOUBLE
-    return either_of(DOUBLE(), DECIMAL(), INTEGER())
+    return either_of(DOUBLE, DECIMAL, INTEGER)
 
 
 def NumericLiteralPositive() -> Parser:
     # INTEGER_POSITIVE | DECIMAL_POSITIVE | DOUBLE_POSITIVE
-    return either_of(DOUBLE_POSITIVE(), DECIMAL_POSITIVE(), INTEGER_POSITIVE())
+    return either_of(DOUBLE_POSITIVE, DECIMAL_POSITIVE, INTEGER_POSITIVE)
 
 
 def NumericLiteralNegative() -> Parser:
     # INTEGER_NEGATIVE | DECIMAL_NEGATIVE | DOUBLE_NEGATIVE
-    return either_of(DOUBLE_NEGATIVE(), DECIMAL_NEGATIVE(), INTEGER_NEGATIVE())
+    return either_of(DOUBLE_NEGATIVE, DECIMAL_NEGATIVE, INTEGER_NEGATIVE)
 
 
 class BooleanLiteral(TaggingParser):
     # 'true' | 'false'
     def parser(self) -> Parser:
-        return either_of(MatchString(r'true'), MatchString(r'false'))
+        return Either(MatchString(r'true'), MatchString(r'false'))
 
 
 def String() -> Parser:
@@ -1493,89 +1488,95 @@ def String() -> Parser:
     """
     # STRING_LITERAL1 | STRING_LITERAL2 | STRING_LITERAL_LONG1 | STRING_LITERAL_LONG2
     return either_of(
-        STRING_LITERAL_LONG1(),
-        STRING_LITERAL_LONG2(),
-        STRING_LITERAL1(),
-        STRING_LITERAL2(),
+        STRING_LITERAL_LONG1,
+        STRING_LITERAL_LONG2,
+        STRING_LITERAL1,
+        STRING_LITERAL2,
     )
 
 
 def iri() -> Parser:
     # IRIREF | PrefixedName
-    return Either(IRIREF(), PrefixedName())
+    return Either(IRIREF, PrefixedName())
 
 
 class PrefixedName(TaggingParser):
+    """
+    >>> parser = PrefixedName()
+
+    >>> parser.parse("a:b <some>")
+    (' <some>', Tagged(name='PrefixedName', value=('a:', 'b')))
+
+    >>> parser.parse("a: <other>")
+    (' <other>', Tagged(name='PrefixedName', value='a:'))
+
+    >>> parser.parse(":def|")
+    ('|', Tagged(name='PrefixedName', value=(':', 'def')))
+
+    >>> parser.parse("")
+    Error(on='')
+    """
+
     # PNAME_LN | PNAME_NS
     def parser(self) -> Parser:
-        return Either(PNAME_LN(), PNAME_NS())
-
-
-#  Productions for terminals:
+        return Either(PNAME_LN, PNAME_NS)
 
 
 def BlankNode() -> Parser:
     # BLANK_NODE_LABEL | ANON
-    return Either(BLANK_NODE_LABEL(), ANON())
+    return Either(BLANK_NODE_LABEL, ANON)
 
 
-# def IRIREF() -> Parser:
-#    # '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
-#    return MatchString(r'<')
+##
+#  Productions for terminals:
 
 
-def PNAME_NS() -> Parser:
-    # PN_PREFIX? ':'
-    return ReduceToString(Pair(Optional(PN_PREFIX()), MatchString(r':')))
+_MATCH_IRI = re.compile(r'<([^<>"{}|^`\\\u0000-\u0020]*)>').match
 
 
-def PNAME_LN() -> Parser:
-    # PNAME_NS PN_LOCAL
-    return Pair(PNAME_NS(), PN_LOCAL())
+class _IRIRef(Parser[Tagged]):
+    """
+    >>> parser = _IRIRef()
+
+    >>> parser.parse('<http://example.org/>')
+    ('', Tagged(name='IRIREF', value='http://example.org/'))
+
+    >>> parser.parse("<http://example.org/path?query=x&y=z#hash>")
+    ('', Tagged(name='IRIREF', value='http://example.org/path?query=x&y=z#hash'))
+
+    >>> parser.parse("<<>")
+    Error(on='<<>')
+
+    >>> parser.parse("< >")
+    Error(on='< >')
+
+    >>> parser.parse("")
+    Error(on='')
+    """
+
+    # '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
+    def parse(self, input: str) -> ParseResult[Tagged]:
+        m = _MATCH_IRI(input)
+        if m:
+            s = m[1]
+            return input[m.end() :], Tagged('IRIREF', s)
+
+        return Error(input)
 
 
-class BLANK_NODE_LABEL(TaggingParser):
-    # '_:' ( PN_CHARS_U | [0-9] ) ((PN_CHARS|'.')* PN_CHARS)?
-    def parser(self) -> Parser:
-        return Right(
-            MatchString(r"_:"),
-            ReduceToString(
-                pattern_of(
-                    either_of(PN_CHARS_U(), RegExp(r"[0-9]")),
-                    Optional(
-                        # TODO: this doesn't work
-                        # pattern_of(
-                        #    ZeroOrMore(Either(PN_CHARS(), MatchString(r"."))), PN_CHARS()
-                        # ),
-                        ZeroOrMore(PN_CHARS()),
-                    ),
-                )
-            ),
-        )
+IRIREF = _IRIRef()
 
 
-class VAR1(TaggingParser):
-    # '?' VARNAME
-    def parser(self) -> Parser:
-        return Right(MatchString(r'?'), VARNAME())
-
-
-class VAR2(TaggingParser):
-    # '$' VARNAME
-    def parser(self) -> Parser:
-        return Right(MatchString(r'$'), VARNAME())
-
-
-class LANGTAG(TaggingParser):
-    # '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
-    def parser(self) -> Parser:
-        return pattern_of(
-            MatchString(r'@'),
-            OneOrMore(RegExp(r'[a-zA-Z]')),
-            ZeroOrMore(
-                pattern_of(MatchString(r'-'), OneOrMore(RegExp(r'[a-zA-Z0-9]')))
-            ),
-        )
+LANGTAG = TaggedParser(
+    'LANGTAG',
+    pattern_of(
+        MatchString(r'@'),
+        OneOrMore(RegExp(r'[a-zA-Z]')),
+        ZeroOrMore(
+            pattern_of(MatchString(r'-'), OneOrMore(RegExp(r'[a-zA-Z0-9]')))
+        ),
+    )
+) # '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
 
 
 def _digit_string():
@@ -1586,236 +1587,141 @@ def _opt_digit_string():
     return CollectString(ZeroOrMore(RegExp(r'[0-9]')))
 
 
-class INTEGER(TaggingParser):
-    # [0-9]+
-    def parser(self) -> Parser:
-        return _digit_string()
+INTEGER = TaggedParser('INTEGER', _digit_string()) # [0-9]+
+
+DECIMAL = TaggedParser('DECIMAL',
+    pattern_of(_opt_digit_string(), MatchString(r'.'), _digit_string())
+) # [0-9]* '.' [0-9]+
+
+EXPONENT = TaggedParser('EXPONENT', 
+    pattern_of(RegExp(r'[eE]'), Optional(RegExp(r'[+-]')), _digit_string())
+) # [eE] [+-]? [0-9]+
+
+DOUBLE = TaggedParser('DOUBLE',
+    either_of(
+        pattern_of(
+            _digit_string(), MatchString(r'.'), _opt_digit_string(), EXPONENT
+        ),
+        pattern_of(MatchString(r'.'), _digit_string(), EXPONENT),
+        pattern_of(_digit_string(), EXPONENT),
+    )
+) # [0-9]+ '.' [0-9]* EXPONENT | '.' ([0-9])+ EXPONENT | ([0-9])+ EXPONENT
+
+INTEGER_POSITIVE = TaggedParser('INTEGER_POSITIVE',
+    Right(MatchString(r'+'), INTEGER)
+) # '+' INTEGER
+
+DECIMAL_POSITIVE = TaggedParser('DECIMAL_POSITIVE',
+    Right(MatchString(r'+'), DECIMAL)
+) # '+' DECIMAL
+
+DOUBLE_POSITIVE = TaggedParser('DOUBLE_POSITIVE',
+    Right(MatchString(r'+'), DOUBLE)
+) # '+' DOUBLE
+
+INTEGER_NEGATIVE = TaggedParser('INTEGER_NEGATIVE',
+    Right(MatchString(r'-'), INTEGER)
+) # '-' INTEGER
+
+DECIMAL_NEGATIVE = TaggedParser('DECIMAL_NEGATIVE',
+    Right(MatchString(r'-'), DECIMAL)
+) # '-' DECIMAL
+
+DOUBLE_NEGATIVE = TaggedParser('DOUBLE_NEGATIVE',
+    Right(MatchString(r'-'), DOUBLE)
+) # '-' DOUBLE
 
 
-class DECIMAL(TaggingParser):
-    # [0-9]* '.' [0-9]+
-    def parser(self) -> Parser:
-        return pattern_of(_opt_digit_string(), MatchString(r'.'), _digit_string())
+ECHAR: Parser = Right(MatchString('\\'), RegExp(r'[tbnrf\\\"\']')) # '\' [tbnrf\"']
 
-
-class DOUBLE(TaggingParser):
-    # [0-9]+ '.' [0-9]* EXPONENT | '.' ([0-9])+ EXPONENT | ([0-9])+ EXPONENT
-    def parser(self) -> Parser:
-        return either_of(
-            pattern_of(
-                _digit_string(), MatchString(r'.'), _opt_digit_string(), EXPONENT()
-            ),
-            pattern_of(MatchString(r'.'), _digit_string(), EXPONENT()),
-            pattern_of(_digit_string(), EXPONENT()),
-        )
-
-
-class INTEGER_POSITIVE(TaggingParser):
-    # '+' INTEGER
-    def parser(self) -> Parser:
-        return Right(MatchString(r'+'), INTEGER())
-
-
-class DECIMAL_POSITIVE(TaggingParser):
-    # '+' DECIMAL
-    def parser(self) -> Parser:
-        return Right(MatchString(r'+'), DECIMAL())
-
-
-class DOUBLE_POSITIVE(TaggingParser):
-    # '+' DOUBLE
-    def parser(self) -> Parser:
-        return Right(MatchString(r'+'), DOUBLE())
-
-
-class INTEGER_NEGATIVE(TaggingParser):
-    # '-' INTEGER
-    def parser(self) -> Parser:
-        return Right(MatchString(r'-'), INTEGER())
-
-
-class DECIMAL_NEGATIVE(TaggingParser):
-    # '-' DECIMAL
-    def parser(self) -> Parser:
-        return Right(MatchString(r'-'), DECIMAL())
-
-
-class DOUBLE_NEGATIVE(TaggingParser):
-    # '-' DOUBLE
-    def parser(self) -> Parser:
-        return Right(MatchString(r'-'), DOUBLE())
-
-
-class EXPONENT(TaggingParser):
-    # [eE] [+-]? [0-9]+
-    def parser(self) -> Parser:
-        return pattern_of(RegExp(r'[eE]'), Optional(RegExp(r'[+-]')), _digit_string())
-
-
-def STRING_LITERAL1() -> Parser:
-    """
-    >>> STRING_LITERAL1().parse("'abc'")
-    ('', 'abc')
-    """
-    # "'" ( ([^#x27#x5C#xA#xD]) | ECHAR )* "'"
-    return Right(
+STRING_LITERAL1: Parser = Right(
+    MatchString(r"'"),
+    Left(
+        ReduceToString(
+            ZeroOrMore(either_of(RegExp(r'[^\u0027\u005C\u000A\u000D]'), ECHAR))
+        ),
         MatchString(r"'"),
-        Left(
-            ReduceToString(
-                ZeroOrMore(either_of(RegExp(r'[^\u0027\u005C\u000A\u000D]'), ECHAR()))
-            ),
-            MatchString(r"'"),
+    ),
+) # "'" ( ([^#x27#x5C#xA#xD]) | ECHAR )* "'"
+# >>> STRING_LITERAL1.parse("'abc'")
+# ('', 'abc')
+
+STRING_LITERAL2: Parser = Right(
+    MatchString(r'"'),
+    Left(
+        ReduceToString(
+            ZeroOrMore(either_of(RegExp(r'[^\u0022\u005C\u000A\u000D]'), ECHAR))
         ),
-    )
-
-
-def STRING_LITERAL2() -> Parser:
-    """
-    >>> STRING_LITERAL2().parse('"abc"')
-    ('', 'abc')
-    """
-    # '"' ( ([^#x22#x5C#xA#xD]) | ECHAR )* '"'
-    return Right(
         MatchString(r'"'),
-        Left(
-            ReduceToString(
-                ZeroOrMore(either_of(RegExp(r'[^\u0022\u005C\u000A\u000D]'), ECHAR()))
+    ),
+) # '"' ( ([^#x22#x5C#xA#xD]) | ECHAR )* '"'
+# >>> STRING_LITERAL2().parse('"abc"')
+# ('', 'abc')
+
+STRING_LITERAL_LONG1: Parser = Right(
+    MatchString(r"'''"),
+    Left(
+        ReduceToString(
+            ZeroOrMore(
+                Pair(
+                    Optional(Either(MatchString(r"'"), MatchString(r"''"))),
+                    Either(RegExp(r"[^'\\]"), ECHAR),
+                ),
             ),
-            MatchString(r'"'),
         ),
-    )
-
-
-def STRING_LITERAL_LONG1() -> Parser:
-    # "'''" ( ( "'" | "''" )? ( [^'\] | ECHAR ) )* "'''"
-    return Right(
         MatchString(r"'''"),
-        Left(
-            ReduceToString(
-                ZeroOrMore(
-                    Pair(
-                        Optional(Either(MatchString(r"'"), MatchString(r"''"))),
-                        Either(RegExp(r"[^'\\]"), ECHAR()),
-                    ),
+    ),
+) # "'''" ( ( "'" | "''" )? ( [^'\] | ECHAR ) )* "'''"
+
+STRING_LITERAL_LONG2: Parser = Right(
+    MatchString(r'"""'),
+    Left(
+        ReduceToString(
+            ZeroOrMore(
+                Pair(
+                    Optional(Either(MatchString(r'"'), MatchString(r'""'))),
+                    Either(RegExp(r'[^"\\]'), ECHAR),
                 ),
             ),
-            MatchString(r"'''"),
         ),
-    )
-
-
-def STRING_LITERAL_LONG2() -> Parser:
-    # '"""' ( ( '"' | '""' )? ( [^"\] | ECHAR ) )* '"""'
-    return Right(
         MatchString(r'"""'),
-        Left(
-            ReduceToString(
-                ZeroOrMore(
-                    Pair(
-                        Optional(Either(MatchString(r'"'), MatchString(r'""'))),
-                        Either(RegExp(r'[^"\\]'), ECHAR()),
-                    ),
-                ),
-            ),
-            MatchString(r'"""'),
-        ),
-    )
+    ),
+) # '"""' ( ( '"' | '""' )? ( [^"\] | ECHAR ) )* '"""'
 
 
-def ECHAR() -> Parser:
-    # '\' [tbnrf\"']
-    return Right(MatchString('\\'), RegExp(r'[tbnrf\\\"\']'))
+NIL = TaggedParser(
+    'NIL', pattern_of(MatchString(r'('), CSPACE0, MatchString(r')'))
+) # '(' WS* ')'
 
+# WS = #x20 | #x9 | #xD | #xA
 
-class NIL(TaggingParser):
-    # '(' WS* ')'
-    def parser(self) -> Parser:
-        # return pattern_of(MatchString(r'('), ZeroOrMore(WS()), MatchString(r')'))
-        return pattern_of(MatchString(r'('), cspace0(), MatchString(r')'))
-
-
-# dclass WS(TaggingParser):
-#    # #x20 | #x9 | #xD | #xAdef parser(self) -> Parser:
-#    return cspace1()
-
-
-class ANON(TaggingParser):
+ANON = TaggedParser(
+    'ANON',
     # '[' WS* ']'
-    def parser(self) -> Parser:
-        # return pattern_of(MatchString(r'['), ZeroOrMore(WS()), MatchString(r']'))
-        return pattern_of(MatchString(r'['), cspace0(), MatchString(r']'))
+    pattern_of(MatchString(r'['), CSPACE0, MatchString(r']'))
+)
 
 
-def PN_CHARS_BASE() -> Parser:
+PN_CHARS_BASE = Either(RegExp(r'[A-Z]'), RegExp(r'[a-z]'))
+    # either_of(RegExp(r'[A-Z]'), RegExp(r'[a-z]'), RegExp(r'[#x00C0-#x00D6]'), RegExp(r'[#x00D8-#x00F6]'), RegExp(r'[#x00F8-#x02FF]'), RegExp(r'[#x0370-#x037D]'), RegExp(r'[#x037F-#x1FFF]'), RegExp(r'[#x200C-#x200D]'), RegExp(r'[#x2070-#x218F]'), RegExp(r'[#x2C00-#x2FEF]'), RegExp(r'[#x3001-#xD7FF]'), RegExp(r'[#xF900-#xFDCF]'), RegExp(r'[#xFDF0-#xFFFD]'), RegExp(r'[#x10000-#xEFFFF]'))
     # [A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6] | [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
-    # return either_of(RegExp(r'[A-Z]'), RegExp(r'[a-z]'), RegExp(r'[#x00C0-#x00D6]'), RegExp(r'[#x00D8-#x00F6]'), RegExp(r'[#x00F8-#x02FF]'), RegExp(r'[#x0370-#x037D]'), RegExp(r'[#x037F-#x1FFF]'), RegExp(r'[#x200C-#x200D]'), RegExp(r'[#x2070-#x218F]'), RegExp(r'[#x2C00-#x2FEF]'), RegExp(r'[#x3001-#xD7FF]'), RegExp(r'[#xF900-#xFDCF]'), RegExp(r'[#xFDF0-#xFFFD]'), RegExp(r'[#x10000-#xEFFFF]'))
-    return either_of(RegExp(r'[A-Z]'), RegExp(r'[a-z]'))
 
 
-def PN_CHARS_U() -> Parser:
-    # PN_CHARS_BASE | '_'
-    return either_of(PN_CHARS_BASE(), MatchString(r'_'))
+PN_CHARS_U = Either(PN_CHARS_BASE, MatchString(r'_')) # PN_CHARS_BASE | '_'
+
+PN_CHARS = either_of(PN_CHARS_U, MatchString(r'-'), RegExp(r'[0-9]'))
+# either_of(PN_CHARS_U(), MatchString(r'-'), RegExp(r'[0-9]'), Tagged(name='hexchar', value='x00B7'), RegExp(r'[#x0300-#x036F]'), RegExp(r'[#x203F-#x2040]'))
+# PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
 
 
-def VARNAME() -> Parser:
-    # ( PN_CHARS_U | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
-    # return pattern_of(either_of(PN_CHARS_U(), RegExp(r'[0-9]')), ZeroOrMore(either_of(PN_CHARS_U(), RegExp(r'[0-9]'), Tagged(name='hexchar', value='x00B7'), RegExp(r'[#x0300-#x036F]'), RegExp(r'[#x203F-#x2040]'))))
-    return ReduceToString(
-        Pair(
-            either_of(PN_CHARS_U(), RegExp(r'[0-9]')),
-            ZeroOrMore(either_of(PN_CHARS_U(), RegExp(r'[0-9]'))),
-        )
-    )
+PN_PREFIX = ReduceToString(Pair(PN_CHARS_BASE, Optional(ZeroOrMore(PN_CHARS))))
+# pattern_of(PN_CHARS_BASE(), Optional(pattern_of(ZeroOrMore(either_of(PN_CHARS(), MatchString(r'.'))), PN_CHARS())))
+# PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+
+PNAME_NS = ReduceToString(Pair(Optional(PN_PREFIX), MatchString(r':'))) # PN_PREFIX? ':'
 
 
-def PN_CHARS() -> Parser:
-    # PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
-    # return either_of(PN_CHARS_U(), MatchString(r'-'), RegExp(r'[0-9]'), Tagged(name='hexchar', value='x00B7'), RegExp(r'[#x0300-#x036F]'), RegExp(r'[#x203F-#x2040]'))
-    return either_of(PN_CHARS_U(), MatchString(r'-'), RegExp(r'[0-9]'))
-
-
-def PN_PREFIX() -> Parser:
-    # PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
-    # return pattern_of(PN_CHARS_BASE(), Optional(pattern_of(ZeroOrMore(either_of(PN_CHARS(), MatchString(r'.'))), PN_CHARS())))
-    return ReduceToString(Pair(PN_CHARS_BASE(), Optional(ZeroOrMore(PN_CHARS()))))
-
-
-def PN_LOCAL() -> Parser:
-    # (PN_CHARS_U | ':' | [0-9] | PLX ) ((PN_CHARS | '.' | ':' | PLX)* (PN_CHARS | ':' | PLX) )?
-    # return pattern_of(either_of(PN_CHARS_U(), MatchString(r':'), RegExp(r'[0-9]'), PLX()), Optional(pattern_of(ZeroOrMore(either_of(PN_CHARS(), MatchString(r'.'), MatchString(r':'), PLX())), either_of(PN_CHARS(), MatchString(r':'), PLX()))))
-    return ReduceToString(
-        Pair(
-            either_of(PN_CHARS_U(), MatchString(r':'), RegExp(r'[0-9]'), PLX()),
-            Optional(
-                pattern_of(
-                    ZeroOrMore(
-                        either_of(
-                            PN_CHARS(), MatchString(r'.'), MatchString(r':'), PLX()
-                        )
-                    )
-                )
-            ),
-        )
-    )
-
-
-def PLX() -> Parser:
-    # PERCENT | PN_LOCAL_ESC
-    return Either(PERCENT(), PN_LOCAL_ESC())
-
-
-class PERCENT(TaggingParser):
-    # '%' HEX HEX
-    def parser(self) -> Parser:
-        return Pair(MatchString(r'%'), Pair(HEX(), HEX()))
-
-
-def HEX() -> Parser:
-    # [0-9] | [A-F] | [a-f]
-    return either_of(RegExp(r'[0-9]'), RegExp(r'[A-F]'), RegExp(r'[a-f]'))
-
-
-class PN_LOCAL_ESC(TaggingParser):
+class _PN_LOCAL_ESC(TaggingParser):
     # '\' ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
     def parser(self) -> Parser:
         esc_chars = (
@@ -1827,43 +1733,64 @@ class PN_LOCAL_ESC(TaggingParser):
         )
 
 
-iri_disallowed = set(r'<>"{}|^`\\')
-iri_nonrange = re.compile(r'[\u0000-\u0020]').match
+PN_LOCAL_ESC = _PN_LOCAL_ESC()
+
+HEX = either_of(RegExp(r'[0-9]'), RegExp(r'[A-F]'), RegExp(r'[a-f]')) # [0-9] | [A-F] | [a-f]
+
+PERCENT = Pair(MatchString(r'%'), Pair(HEX, HEX)) # '%' HEX HEX
+
+PLX = Either(PERCENT, PN_LOCAL_ESC) # PERCENT | PN_LOCAL_ESC
+
+PN_LOCAL = ReduceToString(
+    Pair(
+        either_of(PN_CHARS_U, MatchString(r':'), RegExp(r'[0-9]'), PLX),
+        Optional(
+            pattern_of(
+                ZeroOrMore(
+                    either_of(
+                        PN_CHARS, MatchString(r'.'), MatchString(r':'), PLX
+                    )
+                )
+            )
+        ),
+    )
+)
 
 
-def match_iri_char(c: str) -> bool:
-    return c not in iri_disallowed and iri_nonrange(c) is None
+PNAME_LN = Pair(PNAME_NS, PN_LOCAL)
 
+BLANK_NODE_LABEL = TaggedParser(
+    'BLANK_NODE_LABEL',
+    # '_:' ( PN_CHARS_U | [0-9] ) ((PN_CHARS|'.')* PN_CHARS)?
+    Right(
+        MatchString(r"_:"),
+        ReduceToString(
+            Pair(
+                Either(PN_CHARS_U, RegExp(r"[0-9]")),
+                Optional(
+                    # TODO: this doesn't work
+                    # pattern_of(
+                    #    ZeroOrMore(Either(PN_CHARS(), MatchString(r"."))), PN_CHARS()
+                    # ),
+                    ZeroOrMore(PN_CHARS),
+                ),
+            )
+        ),
+    )
+)
 
-class IRIREF(TaggingParser):
-    """
-    >>> parser = IRIREF()
+# ( PN_CHARS_U | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
+# return pattern_of(either_of(PN_CHARS_U(), RegExp(r'[0-9]')), ZeroOrMore(either_of(PN_CHARS_U(), RegExp(r'[0-9]'), Tagged(name='hexchar', value='x00B7'), RegExp(r'[#x0300-#x036F]'), RegExp(r'[#x203F-#x2040]'))))
+VARNAME = ReduceToString(
+    Pair(
+        Either(PN_CHARS_U, RegExp(r'[0-9]')),
+        ZeroOrMore(either_of(PN_CHARS_U, RegExp(r'[0-9]'))),
+    )
+)
 
-    >>> parser.parse('<http://example.org/>')
-    ('', Tagged(name='IRIREF', value='http://example.org/'))
+VAR1 = TaggedParser('VAR1', Right(MatchString(r'?'), VARNAME)) # '?' VARNAME
 
-    >>> parser.parse("<http://example.org/path?query=x&y=z#hash>")
-    ('', Tagged(name='IRIREF', value='http://example.org/path?query=x&y=z#hash'))
-
-    >>> parser.parse("<<>")
-    Error(on='<>')
-
-    >>> parser.parse("< >")
-    Error(on=' >')
-
-    >>> parser.parse("")
-    Error(on='')
-    """
-
-    # '<' ([^<>"{}|^`\]-[#x00-#x20])* '>'
-    def parser(self) -> Parser:
-        return Right(
-            MatchString("<"),
-            Left(
-                CollectString(ZeroOrMore(AnyChar(match_iri_char))),
-                MatchString(">"),
-            ),
-        )
+VAR2 = TaggedParser('VAR2', Right(MatchString(r'$'), VARNAME)) # '$' VARNAME
 
 
 def parse(indata: str):

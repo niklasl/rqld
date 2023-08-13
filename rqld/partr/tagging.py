@@ -18,15 +18,31 @@ def tagged(name: str, result: ParseResult) -> ParseResult[Tagged]:
     return next_input, Tagged(name, value)
 
 
-class TaggingParser(Parser):
+class TaggedParser(Parser):
     tag: str
+    _parser: Parser
 
-    def __init__(self):
-        self.tag = type(self).__name__
+    def __init__(self, tag: str, parser: Parser):
+        self.tag = tag
+        self._parser = parser
 
     def parse(self, input: str):
-        parser = self.parser()
-        return tagged(self.tag, parser.parse(input))
+        return tagged(self.tag, self._parser.parse(input))
+
+
+class TaggingParser(Parser):
+    tag: str
+    _parser: Parser | None
+
+    def __init__(self, tag: str | None = None):
+        self.tag = tag or type(self).__name__
+        self._parser = None
+
+    def parse(self, input: str):
+        if self._parser is None:
+            self._parser = self.parser()
+
+        return tagged(self.tag, self._parser.parse(input))
 
     @abstractmethod
     def parser(self) -> Parser:
