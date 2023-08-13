@@ -375,49 +375,60 @@ def _add_to_chunks(chunks: list[str], value: object) -> None:
             _add_to_chunks(chunks, v)
 
 
-def space_char() -> Parser[str]:
-    r"""
-    >>> parser = space_char()
+class SpacesOrComment(Parser[None]):
+    lead: str | None
+    required: bool
+    __slots__ = tuple(__annotations__)
 
-    >>> parser.parse(" ")
-    ('', ' ')
-    >>> parser.parse("\n")
-    ('', '\n')
-    >>> parser.parse(" x")
-    ('x', ' ')
+    def __init__(self, lead: str|None = None, required=False):
+        self.lead = lead
+        self.required = required
 
-    >>> parser.parse("x ")
-    Error(on='x ')
-    >>> parser.parse("")
-    Error(on='')
-    """
-    return AnyChar(lambda c: c.isspace())
+    def parse(self, input: str) -> ParseResult[None]:
+        i = 0
+        in_comment = False
+
+        input_len = len(input)
+        lead = self.lead
+
+        while i < input_len:
+            c = input[i]
+
+            if in_comment:
+                i += 1
+                if c == '\n':
+                    in_comment = False
+            else:
+                if c == lead:
+                    i += 1
+                    in_comment = True
+                elif not c.isspace():
+                    break
+                else:
+                    i += 1
 
 
-def space_or_comment(lead: str|None = None):
-    if lead is None:
-        return space_char()
-    else:
-        return Either(
-            space_char(),
-            Pair(
-                MatchString(cast(str, lead)),
-                ZeroOrMore(AnyChar(lambda c: c != '\n'))
-            ),
-        )
+        if i == 0 and self.required:
+            return Error(input)
+
+        return input[i:], None
 
 
 def space0(lead: str|None = None) -> Parser:
     r"""
     >>> parser = space0()
     >>> parser.parse("")
-    ('', [])
+    ('', None)
     >>> parser.parse("  \t\n")
-    ('', [' ', ' ', '\t', '\n'])
+    ('', None)
     >>> parser.parse("  abc")
-    ('abc', [' ', ' '])
+    ('abc', None)
+
+    >>> parser = space0('#')
+    >>> parser.parse("  # comment\n  data")
+    ('data', None)
     """
-    return ZeroOrMore(space_or_comment(lead))
+    return SpacesOrComment(lead)
 
 
 def space1(lead: str|None = None) -> Parser:
@@ -426,11 +437,11 @@ def space1(lead: str|None = None) -> Parser:
     >>> parser.parse("")
     Error(on='')
     >>> parser.parse("  ")
-    ('', [' ', ' '])
+    ('', None)
     >>> parser.parse("  abc")
-    ('abc', [' ', ' '])
+    ('abc', None)
     """
-    return OneOrMore(space_or_comment(lead))
+    return SpacesOrComment(lead, True)
 
 
 def space_wrap(parser: Parser, lead: str|None = None) -> Parser:
