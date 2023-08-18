@@ -214,10 +214,20 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
 
     def match_Update(self, update):
         results = []
+
         while update is not None:
-            (prologue, (update1, update)) = update
+            (prologue, trail) = update
             ctx = self.match_Prologue(prologue.value)
+            if trail is None:
+                break
+
+            update1, next_update = trail
             results.append(ctx | {GRAPH: self.transform(update1)})
+
+            if next_update is None:
+                break
+
+            update = next_update.value
 
         return results[0] if len(results) == 1 else results
 
@@ -323,6 +333,9 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         first, items = property_list
         items.insert(0, first)
         for pair in items:
+            if pair is None:
+                continue
+
             verb, object_list = pair
             p = self.transform(verb)
             objects = self.transform(object_list)
@@ -535,10 +548,9 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
 
         func_name = AGGREGATES[func]
         call_prop = f'rq:{func_name}'
-        aggr_node = {
-            call_prop: self.transform(expr),
-            'rq:distinct': True if distinct is not None else None,
-        }
+        aggr_node = {call_prop: self.transform(expr)}
+        if distinct is not None:
+            aggr_node['rq:distinct'] = distinct == 'DISTINCT'
 
         if separator is not None:
             aggr_node['rq:separator'] = separator
@@ -625,6 +637,14 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         if flags is not None:
             args.append(self.transform(flags))
         return {'rq:regex': {LIST: args}}
+
+    def match_iriOrFunction(self, expr):
+        iri_or_func, f_args = expr
+        term = self.transform(iri_or_func)
+        if f_args is None:
+            return term
+        else:
+            return {term[ID]: self.transform(f_args)}  # TODO: match_ArgList
 
     def match_RDFLiteral(self, literal):
         tagged_value, langtag_or_datatype = literal
