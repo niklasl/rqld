@@ -1,4 +1,3 @@
-import re
 from abc import abstractmethod
 from functools import reduce
 from typing import Callable, Generic, NamedTuple, TypeVar, cast
@@ -313,11 +312,6 @@ class AnyChar(Parser[str]):
             break
 
         return Error(input)
-
-
-def RegExp(exp: str):
-    rexp = re.compile(exp)
-    return AnyChar(lambda c: rexp.match(c) is not None)
 
 
 class CollectString(Parser[str]):

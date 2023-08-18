@@ -1,0 +1,86 @@
+
+    >>> from rqld.combinatorsparser import *
+
+    >>> TriplesSameSubject().parse('<abc> :def ?ghi')
+    ('', Tagged(name='TriplesSameSubject', value=(Tagged(name='IRIREF', value='abc'), Tagged(name='PropertyListNotEmpty', value=((Tagged(name='Verb', value=Tagged(name='PrefixedName', value=(':', 'def'))), Tagged(name='ObjectList', value=(Tagged(name='VAR1', value='ghi'), []))), [])))))
+
+
+    >>> PropertyListNotEmpty().parse(':abc ?def')
+    ('', Tagged(name='PropertyListNotEmpty', value=((Tagged(name='Verb', value=Tagged(name='PrefixedName', value=(':', 'abc'))), Tagged(name='ObjectList', value=(Tagged(name='VAR1', value='def'), []))), [])))
+    >>> Verb().parse('?var')
+    ('', Tagged(name='Verb', value=Tagged(name='VAR1', value='var')))
+
+    >>> Verb().parse('a')
+    ('', Tagged(name='Verb', value='a'))
+
+
+    >>> ObjectList().parse('<abc>, <def>')
+    ('', Tagged(name='ObjectList', value=(Tagged(name='IRIREF', value='abc'), [Tagged(name='IRIREF', value='def')])))
+
+    >>> ObjectList().parse('?def')
+    ('', Tagged(name='ObjectList', value=(Tagged(name='VAR1', value='def'), [])))
+
+    >>> ObjectList().parse('<abc>, ?def')
+    ('', Tagged(name='ObjectList', value=(Tagged(name='IRIREF', value='abc'), [Tagged(name='VAR1', value='def')])))
+
+
+    >>> Object().parse('<abc>')
+    ('', Tagged(name='IRIREF', value='abc'))
+
+    >>> Object().parse('?abc')
+    ('', Tagged(name='VAR1', value='abc'))
+
+
+    >>> Collection.parse('(<abc>)')
+    ('', Tagged(name='Collection', value=[Tagged(name='IRIREF', value='abc')]))
+
+
+    >>> GraphNode().parse('<abc>')
+    ('', Tagged(name='IRIREF', value='abc'))
+
+
+    >>> VarOrIri().parse('?var')
+    ('', Tagged(name='VAR1', value='var'))
+
+
+    >>> LANGTAG.parse('@sv-SE')
+    ('', Tagged(name='LANGTAG', value=(('@', ['s', 'v']), [('-', ['S', 'E'])])))
+
+
+    >>> String().parse('""')
+    ('', '')
+
+    >>> String().parse('"abc"')
+    ('', 'abc')
+
+
+    >>> parser = PrefixedName()
+
+    >>> parser.parse("a:b <some>")
+    (' <some>', Tagged(name='PrefixedName', value=('a:', 'b')))
+
+    >>> parser.parse("a: <other>")
+    (' <other>', Tagged(name='PrefixedName', value='a:'))
+
+    >>> parser.parse(":def|")
+    ('|', Tagged(name='PrefixedName', value=(':', 'def')))
+
+    >>> parser.parse("")
+    Error(on='')
+
+
+    >>> IRIREF.parse('<http://example.org/>')
+    ('', Tagged(name='IRIREF', value='http://example.org/'))
+
+    >>> IRIREF.parse("<http://example.org/path?query=x&y=z#hash>")
+    ('', Tagged(name='IRIREF', value='http://example.org/path?query=x&y=z#hash'))
+
+    >>> IRIREF.parse("<<>")
+    Error(on='<<>')
+
+    >>> IRIREF.parse("< >")
+    Error(on='< >')
+
+    >>> IRIREF.parse("")
+    Error(on='')
+

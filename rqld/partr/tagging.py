@@ -1,7 +1,9 @@
 from abc import abstractmethod
-from typing import NamedTuple, Optional
+from typing import Callable, NamedTuple, Optional
 
 from .combinators import Error, Parser, ParseResult
+
+ParserMaker = Callable[[], Parser]
 
 
 class Tagged(NamedTuple):
@@ -18,35 +20,51 @@ def tagged(name: str, result: ParseResult) -> ParseResult[Tagged]:
     return next_input, Tagged(name, value)
 
 
-class TaggedParser(Parser):
+class TaggedParser(Parser[Tagged]):
     tag: str
-    _parser: Parser
+    parser: Parser
 
     def __init__(self, tag: str, parser: Parser):
         self.tag = tag
-        self._parser = parser
+        self.parser = parser
 
     def parse(self, input: str):
-        return tagged(self.tag, self._parser.parse(input))
+        return tagged(self.tag, self.parser.parse(input))
 
 
-class TaggingParser(Parser):
+class RecursiveParser(Parser[Tagged]):
     tag: str
-    _parser: Parser | None
+    parser: Parser | None
+    maker: ParserMaker
 
-    def __init__(self, tag: str | None = None):
-        self.tag = tag or type(self).__name__
-        self._parser = None
+    def __init__(self, tag: str, maker: ParserMaker):
+        self.tag = tag
+        self.maker = maker
+        self.parser = None
 
     def parse(self, input: str):
-        if self._parser is None:
-            self._parser = self.parser()
+        if self.parser is None:
+            self.parser = self.maker()
+        return tagged(self.tag, self.parser.parse(input))
 
-        return tagged(self.tag, self._parser.parse(input))
 
-    @abstractmethod
-    def parser(self) -> Parser:
-        ...
+def parser_maker(maker: ParserMaker, tag: str | None = None) -> ParserMaker:
+    parser = None
+
+    def f() -> Parser:
+        nonlocal parser
+        if parser is None:
+            parser = maker()
+            if tag:
+                parser = TaggedParser(tag, parser)
+
+        return parser
+
+    return f
+
+
+def tagged_parser(tag: str, maker: ParserMaker) -> ParserMaker:
+    return parser_maker(maker, tag)
 
 
 Cons = tuple[object, Optional['Cons']]
