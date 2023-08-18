@@ -736,14 +736,14 @@ ConstructTriples: Parser = RecursiveParser(
     'ConstructTriples',
     lambda: cspace_pattern_of(
         TriplesSameSubject(),
-        Optional(Right(MatchString(r'.'), Optional(ConstructTriples))),
+        Optional(Right(cspace_wrap(MatchString(r'.')), Optional(ConstructTriples))),
     ),
 )
 
 # TriplesSameSubject ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
 TriplesSameSubject: ParserMaker = tagged_parser(
     'TriplesSameSubject',
-    lambda: either_of(
+    lambda: Either(
         cspace_pattern_of(VarOrTerm(), PropertyListNotEmpty()),
         cspace_pattern_of(TriplesNode(), PropertyList()),
     ),
@@ -762,7 +762,7 @@ PropertyListNotEmpty: ParserMaker = tagged_parser(
         ObjectList(),
         ZeroOrMore(
             Right(
-                Pair(MatchString(r';'), CSPACE0),
+                cspace_wrap(MatchString(r';')),
                 Optional(cspace_pattern_of(Verb(), ObjectList())),
             )
         ),
