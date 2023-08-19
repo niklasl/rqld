@@ -1413,10 +1413,14 @@ IRIREF: Parser = _IRIRef()
 # LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
 LANGTAG: Parser = TaggedParser(
     'LANGTAG',
-    pattern_of(
+    Right(
         MatchString(r'@'),
-        OneOrMore(RegExp(r'[a-zA-Z]')),
-        ZeroOrMore(pattern_of(MatchString(r'-'), OneOrMore(RegExp(r'[a-zA-Z0-9]')))),
+        ReduceToString(
+            Pair(
+                OneOrMore(RegExp(r'[a-zA-Z]')),
+                ZeroOrMore(pattern_of(MatchString(r'-'), OneOrMore(RegExp(r'[a-zA-Z0-9]')))),
+            )
+        )
     ),
 )
 

@@ -44,7 +44,7 @@
 
 
     >>> LANGTAG.parse('@sv-SE')
-    ('', Tagged(name='LANGTAG', value=(('@', ['s', 'v']), [('-', ['S', 'E'])])))
+    ('', Tagged(name='LANGTAG', value='sv-SE'))
 
 
     >>> String().parse('""')

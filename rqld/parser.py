@@ -654,7 +654,8 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
             if isinstance(langtag_or_datatype, str):
                 literal_node[TYPE] = langtag_or_datatype
             else:
-                literal_node[LANGUAGE] = self.transform(langtag_or_datatype)
+                literal_node[LANGUAGE] = langtag_or_datatype.value
+            return literal_node
         else:
             return value
 
