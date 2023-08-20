@@ -372,7 +372,7 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         var_or_term, property_list_path = node_triples
 
         node = self.transform(var_or_term)
-        if node[ID] is None:
+        if ID in node and node[ID] is None:
             del node[ID]
 
         self._add_property_list_path(node, property_list_path)
@@ -385,8 +385,15 @@ class SparqlToJsonLdTransformer(TaggedResultTransformer):
         return node
 
     def _add_property_list_path(self, node, property_list_path) -> None:
-        (some_verb, object_list_path), items = property_list_path.value
+        if len(property_list_path.value[0]) == 2:
+            (some_verb, object_list_path), items = property_list_path.value
+        else:
+            assert property_list_path.value.name == 'PropertyListPathNotEmpty'
+            items = property_list_path.value.value
+            (some_verb, object_list_path), items = property_list_path.value.value
+
         items.insert(0, (some_verb, object_list_path))
+
         for some_verb, object_list_path in items:
             p = self.transform(some_verb)
             objects = self.transform(object_list_path)
